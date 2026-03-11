@@ -5,6 +5,25 @@
 #include "packet.h"
 #include "sniffer.h"
 
+void usage(char *prog_name) {
+    printf("Usage: %s [options]\n", prog_name);
+    printf("Must be run with admin privileges to properly use\n");
+    printf("\nOptions:\n");
+    printf("  -s, --sip <ip>      Filter by Source IP\n");
+    printf("  -d, --dip <ip>      Filter by Destination IP\n");
+    printf("  -p, --sport <port>  Filter by Source Port\n");
+    printf("  -o, --dport <port>  Filter by Destination Port\n");
+    printf("  -i, --sif <iface>   Filter by Source Interface (MAC)\n");
+    printf("  -t, --tcp           Filter for TCP packets only\n");
+    printf("  -u, --udp           Filter for UDP packets only\n");
+    printf("  -r, --pcap <file>   Read from PCAP file instead of live capture\n");
+    printf("  -f, --logfile <file> Specify output log file (default: packet_sniffer_log.txt)\n");
+    printf("  -h, --help          Show this help message\n");
+    printf("\nExample:\n");
+    printf("  sudo %s -i eth0 -t -p 80\n", prog_name);
+    exit(EXIT_SUCCESS);
+}
+
 //#define DEBUG 1
 #define exit_with_error(msg) do{ perror(msg); exit(EXIT_FAILURE);} while(0)
 int main(int argc, char *argv[]) {
@@ -20,11 +39,6 @@ int main(int argc, char *argv[]) {
     uint8_t *buf = (uint8_t*)malloc(65536);
     memset(buf, 0, 65536);
 
-    // ETH_P_ALL is a bitmask for filtering ALL packets
-    sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-    if(sockfd < 0)
-        exit_with_error("socket() error");
-
     packet_filter_t pkt_filter = { 0 };
 
     while(1) {
@@ -38,7 +52,8 @@ int main(int argc, char *argv[]) {
             {"logfile", required_argument, NULL, 'f'},
             {"tcp", no_argument, NULL, 't'},
             {"udp", no_argument, NULL, 'u'},
-            {"pcap", optional_argument, NULL, 'r'},
+            {"pcap", required_argument, NULL, 'r'},
+            {"help", no_argument, NULL, 'h'},
         };
 
         c = getopt_long(argc, argv, "tus:d:p:o:i:g:f:r:", long_options, NULL);
@@ -78,10 +93,17 @@ int main(int argc, char *argv[]) {
             case 'r':
                 strncpy(pcap, optarg, strlen(optarg));
                 break;
+            case 'h':
             default:
-                abort();
+                usage(argv[0]);
+                exit(EXIT_SUCCESS);
         }
     }
+
+    // ETH_P_ALL is a bitmask for filtering ALL packets
+    sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+    if(sockfd < 0)
+        exit_with_error("socket() error");
 
     if(log[0] == 0) {
         char *t = "packet_sniffer_log.txt";
